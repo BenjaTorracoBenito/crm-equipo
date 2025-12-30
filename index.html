@@ -3,12 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CRM Colaborativo (Firebase)</title>
+    <title>CRM Colaborativo + Importador</title>
     
     <!-- React & ReactDOM -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-analytics-compat.js"></script>
     
     <!-- Babel -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -16,9 +15,10 @@
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
 
-    <!-- FIREBASE SDKs (Compatibles con navegador) -->
+    <!-- FIREBASE SDKs -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-analytics-compat.js"></script>
 
     <style>
         .no-scrollbar::-webkit-scrollbar { display: none; }
@@ -36,35 +36,28 @@
         // ==========================================
         // CONFIGURACIÓN DE FIREBASE
         // ==========================================
-        // 1. Ve a console.firebase.google.com
-        // 2. Crea un proyecto web
-        // 3. Pega tu configuración aquí abajo:
-        
         const firebaseConfig = {
-            apiKey: "AIzaSyC5O7RWEvNfQLzEvxKXxDiZN21S3DOFtRQ",
-            authDomain: "crm-personalizado.firebaseapp.com",
-            projectId: "crm-personalizado",
-            storageBucket: "crm-personalizado.firebasestorage.app",
-            messagingSenderId: "354422795954",
-            appId: "1:354422795954:web:5b91eda3954e93312de3ab",
-            measurementId: "G-EV1XL2FDFD"
+            apiKey: "TU_API_KEY",
+            authDomain: "TU_PROYECTO.firebaseapp.com",
+            projectId: "TU_PROJECT_ID",
+            storageBucket: "TU_PROYECTO.appspot.com",
+            messagingSenderId: "NUMEROS",
+            appId: "TU_APP_ID"
         };
 
-        // Inicializar Firebase (Solo si no se ha inicializado ya)
         if (!firebase.apps.length) {
             try {
                 firebase.initializeApp(firebaseConfig);
-                firebase.analytics();
+                firebase.analytics(); // Inicializa Analytics
             } catch (e) {
-                console.error("Error iniciando Firebase. ¿Configuraste las keys?", e);
+                console.error("Error iniciando Firebase", e);
             }
         }
         
-        // Referencia a la base de datos
         const db = firebase.firestore();
 
         // ==========================================
-        // INICIO APP REACT
+        // APP REACT
         // ==========================================
 
         const { useState, useEffect, useRef } = React;
@@ -91,7 +84,8 @@
             X: (props) => <Icon {...props} path={<><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></>} />,
             AlertTriangle: (props) => <Icon {...props} path={<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4m0 4h.01"></path>} />,
             Cloud: (props) => <Icon {...props} path={<path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path>} />,
-            Users: (props) => <Icon {...props} path={<><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></>} />
+            Users: (props) => <Icon {...props} path={<><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></>} />,
+            Upload: (props) => <Icon {...props} path={<><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></>} />
         };
 
         const SimpleCRM = () => {
@@ -102,6 +96,8 @@
             const [searchTerm, setSearchTerm] = useState('');
             const [loading, setLoading] = useState(true);
             const [dbError, setDbError] = useState(null);
+            
+            const fileInputRef = useRef(null); // Para el importador
 
             // --- CONEXIÓN A FIREBASE EN TIEMPO REAL ---
             useEffect(() => {
@@ -111,9 +107,8 @@
                     return;
                 }
 
-                // Suscripción a cambios en tiempo real
                 const unsubscribe = db.collection("contactos")
-                    .orderBy("updatedAt", "desc")
+                    .orderBy("createdAt", "desc")
                     .onSnapshot((snapshot) => {
                         const leadsData = snapshot.docs.map(doc => ({
                             id: doc.id,
@@ -123,11 +118,10 @@
                         setLoading(false);
                     }, (error) => {
                         console.error("Error fetching data:", error);
-                        setDbError("Error de conexión. Verifica tu internet o las reglas de Firebase.");
+                        setDbError("Error conectando a Firebase.");
                         setLoading(false);
                     });
 
-                // Cleanup al cerrar
                 return () => unsubscribe();
             }, []);
 
@@ -144,6 +138,65 @@
                 { label: 'Rechazado', color: 'bg-red-100 text-red-600', icon: Icons.XCircle },
             ];
 
+            // --- LÓGICA DE IMPORTACIÓN DE JSON (MIGRACIÓN) ---
+            const handleImportClick = () => {
+                fileInputRef.current.click();
+            };
+
+            const handleFileChange = (event) => {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = async (e) => {
+                    try {
+                        const importedData = JSON.parse(e.target.result);
+                        if (!Array.isArray(importedData)) {
+                            alert("Formato incorrecto. Debe ser un array JSON.");
+                            return;
+                        }
+
+                        if (!confirm(`Se encontraron ${importedData.length} contactos en el archivo. ¿Deseas subirlos a la Nube?`)) return;
+
+                        setLoading(true);
+                        let count = 0;
+                        
+                        // Iterar y subir uno por uno
+                        for (const item of importedData) {
+                            // Validar que no exista ya por teléfono (check simple local)
+                            const normalizePhone = (p) => p ? p.replace(/\D/g, '') : '';
+                            const exists = leads.some(l => normalizePhone(l.phone) === normalizePhone(item.phone));
+                            
+                            if (!exists) {
+                                await db.collection("contactos").add({
+                                    name: item.name || 'Sin Nombre',
+                                    company: item.company || '',
+                                    phone: item.phone || '',
+                                    niche: item.niche || 'Otros',
+                                    location: item.location || '',
+                                    status: item.status || 'Nuevo',
+                                    notes: item.notes || '',
+                                    imported: true,
+                                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                                });
+                                count++;
+                            }
+                        }
+                        
+                        alert(`Proceso finalizado. Se importaron ${count} contactos nuevos.`);
+                    } catch (error) {
+                        console.error(error);
+                        alert("Error al importar: " + error.message);
+                    } finally {
+                        setLoading(false);
+                        event.target.value = null; // Reset input
+                    }
+                };
+                reader.readAsText(file);
+            };
+
+            // --- LÓGICA NORMAL (CRUD) ---
             const handleInputChange = (e) => {
                 const { name, value } = e.target;
                 setFormData({ ...formData, [name]: value });
@@ -154,14 +207,13 @@
                 const normalizePhone = (p) => p ? p.replace(/\D/g, '') : '';
                 const newPhone = normalizePhone(formData.phone);
                 
-                // Verificar duplicados (usando la lista local que está sincronizada)
                 const duplicate = leads.find(l => {
                     if (editingLead && l.id === editingLead.id) return false;
                     return normalizePhone(l.phone) === newPhone;
                 });
 
                 if (duplicate) {
-                    alert(`⚠️ ¡Cuidado! Ese número ya existe.\n\nRegistrado como: ${duplicate.name} (${duplicate.company})`);
+                    alert(`⚠️ ¡Cuidado! Ese número ya existe.\nRegistrado como: ${duplicate.name} (${duplicate.company})`);
                     return; 
                 }
 
@@ -169,7 +221,7 @@
                 try {
                     const dataToSave = {
                         ...formData,
-                        updatedAt: firebase.firestore.FieldValue.serverTimestamp() // Usar hora del servidor
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                     };
 
                     if (editingLead) {
@@ -180,19 +232,17 @@
                             createdAt: firebase.firestore.FieldValue.serverTimestamp()
                         });
                     }
-                    
                     setFormData(initialFormState);
                     setEditingLead(null);
                     setView('list');
                 } catch (error) {
-                    console.error("Error guardando:", error);
-                    alert("Error al guardar en la nube. Revisa la consola.");
+                    alert("Error al guardar en la nube.");
                 }
                 setLoading(false);
             };
 
             const handleDelete = async (id) => {
-                if (confirm('¿Estás seguro de eliminar este prospecto? Se borrará para todos los usuarios.')) {
+                if (confirm('¿Estás seguro? Se borrará para todos los usuarios.')) {
                     try {
                         await db.collection("contactos").doc(id).delete();
                     } catch (error) {
@@ -220,7 +270,7 @@
                 return matchesFilter && matchesSearch;
             });
 
-            // --- RENDERIZADO DEL FORMULARIO ---
+            // --- RENDER FORM ---
             const renderForm = () => (
                 <div className="bg-white p-6 rounded-xl shadow-lg max-w-2xl mx-auto animate-fade-in border border-slate-200">
                     <div className="flex justify-between items-center mb-6">
@@ -232,7 +282,6 @@
                             <Icons.X className="w-7 h-7" />
                         </button>
                     </div>
-                    
                     <form onSubmit={handleSubmit} className="space-y-5">
                          <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 mb-4 flex gap-3 items-start">
                             <Icons.AlertTriangle className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
@@ -277,7 +326,7 @@
                         </div>
                         <div>
                             <label className="block text-sm font-bold text-slate-700 mb-1.5">Notas</label>
-                            <textarea name="notes" value={formData.notes} onChange={handleInputChange} rows="3" placeholder="Detalles de la conversación..." className="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition" />
+                            <textarea name="notes" value={formData.notes} onChange={handleInputChange} rows="3" placeholder="Detalles..." className="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition" />
                         </div>
                         <button type="submit" disabled={loading} className="w-full py-4 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20 disabled:opacity-50">
                             {loading ? <div className="loader border-t-white w-5 h-5"></div> : <><Icons.Save className="w-5 h-5" /> {editingLead ? 'Guardar Cambios' : 'Guardar en Nube'}</>}
@@ -286,10 +335,9 @@
                 </div>
             );
 
-            // --- RENDERIZADO DE LA LISTA ---
+            // --- RENDER LIST ---
             const renderList = () => (
                 <div className="space-y-6">
-                    {/* Header */}
                     <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                         <div>
                             <div className="flex items-center gap-2">
@@ -299,16 +347,28 @@
                                 </span>
                             </div>
                             <p className="text-slate-500 text-sm mt-1 flex items-center gap-2">
-                                <Icons.Users className="w-4 h-4" /> Sincronizado con tu equipo
+                                <Icons.Users className="w-4 h-4" /> {leads.length} Contactos totales
                             </p>
                         </div>
                         
                         <div className="flex gap-2 items-center">
-                            {/* Loading Indicator */}
-                            {loading && <div className="flex items-center gap-2 text-slate-400 text-sm mr-2"><div className="loader w-4 h-4 border-2"></div> Sincronizando...</div>}
+                            {loading && <div className="flex items-center gap-2 text-slate-400 text-sm mr-2"><div className="loader w-4 h-4 border-2"></div></div>}
                             
+                            {/* Input Oculto */}
+                            <input 
+                                type="file" 
+                                ref={fileInputRef} 
+                                onChange={handleFileChange} 
+                                accept=".json" 
+                                className="hidden" 
+                            />
+
+                            <button onClick={handleImportClick} className="bg-slate-100 text-slate-600 px-4 py-2 rounded-lg font-medium hover:bg-slate-200 transition flex items-center gap-2 border border-slate-200 text-sm">
+                                <Icons.Upload className="w-4 h-4" /> Importar JSON
+                            </button>
+
                             <button onClick={() => { setFormData(initialFormState); setView('form'); }} className="bg-slate-900 text-white px-5 py-2 rounded-lg font-bold hover:bg-slate-800 transition flex items-center gap-2 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 text-sm ml-2">
-                                <Icons.Plus className="w-4 h-4" /> Agregar Nuevo
+                                <Icons.Plus className="w-4 h-4" /> Agregar
                             </button>
                         </div>
                     </div>
